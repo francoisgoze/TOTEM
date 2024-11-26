@@ -80,11 +80,11 @@ st.header("Charger les fichiers XML")
 uploaded_file_2024 = st.file_uploader("Charger le fichier XML 2024", type="xml")
 uploaded_file_2025 = st.file_uploader("Charger le fichier XML 2025", type="xml")
 
-if uploaded_file_2024 and uploaded_file_2025:
+if uploaded_file_2024 is not None and uploaded_file_2025 is not None:
     tree_2024, root_2024, filename_2024 = parse_xml(uploaded_file_2024)
     tree_2025, root_2025, filename_2025 = parse_xml(uploaded_file_2025)
 
-    if tree_2024 and root_2024 and tree_2025 and root_2025:
+    if tree_2024 is not None and root_2024 is not None and tree_2025 is not None and root_2025 is not None:
         st.success("Les fichiers XML ont été chargés avec succès.")
 
         if "unmatched_lines_2024" not in st.session_state:
