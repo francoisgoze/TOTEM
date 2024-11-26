@@ -73,7 +73,7 @@ def save_xml(tree, original_filename):
     return xml_bytes.getvalue(), new_filename
 
 # Interface principale
-st.title("Application de Gestion Budgétaire")
+st.title("Application de correction des fichiers TOTEM du Budget 2025 pour charger les crédits 2024 en tant que Budget précédent")
 
 st.header("Charger les fichiers XML")
 
