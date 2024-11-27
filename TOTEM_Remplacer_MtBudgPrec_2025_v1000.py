@@ -43,9 +43,12 @@ def create_modified_2025(tree_2024, root_2024, tree_2025, root_2025):
 
     return tree_2025, unmatched_lines_2025, unmatched_lines_2024
 
-# Fonction pour appliquer les corrections et sommer les valeurs
+# Fonction pour appliquer les corrections et ajouter des nouvelles lignes si nécessaire
 def apply_corrections_to_2025(tree_2025, unmatched_lines_2024, corrections):
     ns = {'': 'http://www.minefi.gouv.fr/cp/demat/docbudgetaire'}
+    root_2025 = tree_2025.getroot()
+
+    # Stocker les valeurs par Nature et ContNat
     summed_values = defaultdict(float)
 
     for (nature, contnat), cred_ouv in unmatched_lines_2024:
@@ -53,14 +56,27 @@ def apply_corrections_to_2025(tree_2025, unmatched_lines_2024, corrections):
             corrected_nature = corrections[(nature, contnat)]
             summed_values[(corrected_nature, contnat)] += cred_ouv
 
+    # Ajouter ou modifier les lignes
     for (corrected_nature, contnat), total_cred_ouv in summed_values.items():
-        for ligne in tree_2025.getroot().findall('.//LigneBudget', ns):
+        found = False
+        for ligne in root_2025.findall('.//LigneBudget', ns):
             ligne_nature = ligne.find('Nature', ns).attrib['V']
             ligne_contnat = ligne.find('ContNat', ns).attrib['V']
 
             if ligne_nature == corrected_nature and ligne_contnat == contnat:
                 current_value = float(ligne.find('MtBudgPrec', ns).attrib['V'])
                 ligne.find('MtBudgPrec', ns).attrib['V'] = str(current_value + total_cred_ouv)
+                found = True
+                break
+
+        if not found:
+            # Créer une nouvelle ligne budget
+            new_ligne = ET.SubElement(root_2025, 'LigneBudget')
+            ET.SubElement(new_ligne, 'Nature', V=corrected_nature)
+            ET.SubElement(new_ligne, 'ContNat', V=contnat)
+            ET.SubElement(new_ligne, 'MtBudgPrec', V=str(total_cred_ouv))
+            for field in ['MtBudgActu', 'CredEng', 'CredDispo', 'Realise']:
+                ET.SubElement(new_ligne, field, V="0")
 
     return tree_2025
 
@@ -73,7 +89,7 @@ def save_xml(tree, original_filename):
     return xml_bytes.getvalue(), new_filename
 
 # Interface principale
-st.title("Application de correction des fichiers TOTEM du Budget 2025 pour charger les crédits 2024 en tant que Budget précédent")
+st.title("Application de Gestion Budgétaire")
 
 st.header("Charger les fichiers XML")
 
@@ -128,14 +144,27 @@ if uploaded_file_2024 is not None and uploaded_file_2025 is not None:
                         break
 
                 st.write(f"Nature: {line[0]}, ContNat: {line[1]}, CredOuv: {cred_ouv}")
-                new_nature = st.selectbox(
-                    f"Nouvelle Nature pour Nature {line[0]} et ContNat {line[1]}",
-                    options=[""] + available_natures,
-                    index=([""] + available_natures).index(default_suggestion) if default_suggestion else 0,
-                    key=f"new_nature_{i}"
-                )
-                if new_nature:
-                    corrections[(line[0], line[1])] = new_nature
+
+                col1, col2 = st.columns(2)
+                with col1:
+                    new_nature = st.selectbox(
+                        f"Nouvelle Nature pour Nature {line[0]} et ContNat {line[1]}",
+                        options=[""] + available_natures,
+                        index=([""] + available_natures).index(default_suggestion) if default_suggestion else 0,
+                        key=f"new_nature_{i}"
+                    )
+
+                with col2:
+                    manual_nature = ""
+                    if not new_nature:
+                        manual_nature = st.text_input(
+                            f"Nature à utiliser pour création d'une nouvelle ligne budgétaire en 2025 pour Nature {line[0]} et ContNat {line[1]}",
+                            value=line[0],
+                            key=f"manual_nature_{i}"
+                        )
+
+                # Enregistrer la correction
+                corrections[(line[0], line[1])] = new_nature if new_nature else manual_nature
 
             if st.button("Appliquer les corrections"):
                 st.session_state.corrections = corrections
@@ -154,3 +183,4 @@ if uploaded_file_2024 is not None and uploaded_file_2025 is not None:
             file_name=new_filename,
             mime="application/xml"
         )
+
